@@ -53,9 +53,11 @@ int main(int argc,char**argv){
    std::ifstream in(data,std::ios::binary|std::ios::ate);
    if(!in) throw std::runtime_error("cannot open dataset");
    const auto size=in.tellg();
-   if(size<2) throw std::runtime_error("dataset must contain at least two bytes");
+   if(size<4) throw std::runtime_error("dataset must contain at least four bytes for a train/validation split");
    const std::uint64_t total=static_cast<std::uint64_t>(size);
-   const std::uint64_t split=std::max<std::uint64_t>(2,total*9/10);
+   const std::uint64_t split=std::clamp<std::uint64_t>(total*9/10,2,total-2);
+   const std::uint64_t validationBytes=total-split;
+   std::ifstream val(data,std::ios::binary);
    Config c;c.hidden=num(arg(argc,argv,"--hidden","96"),96);
    c.sequence=num(arg(argc,argv,"--seq","64"),64);
    c.learning_rate=real(arg(argc,argv,"--lr","0.001"),0.001f);
@@ -67,10 +69,13 @@ int main(int argc,char**argv){
    in.clear();in.seekg(0);
    double sum=0; auto start=std::chrono::steady_clock::now();
    for(int s=1;s<=steps;++s){
-    if(in.tellg()<0 || static_cast<std::uint64_t>(in.tellg())+buf.size()>=split){in.clear();in.seekg(0);}
-    in.read(reinterpret_cast<char*>(buf.data()),static_cast<std::streamsize>(buf.size()));
+    auto pos=in.tellg();
+    if(pos<0 || static_cast<std::uint64_t>(pos)+2>=split){in.clear();in.seekg(0);pos=0;}
+    const auto available=split-static_cast<std::uint64_t>(pos);
+    const auto want=std::min<std::uint64_t>(buf.size(),available);
+    in.read(reinterpret_cast<char*>(buf.data()),static_cast<std::streamsize>(want));
     auto got=static_cast<int>(in.gcount());
-    if(got<2){in.clear();in.seekg(0);in.read(reinterpret_cast<char*>(buf.data()),static_cast<std::streamsize>(buf.size()));got=static_cast<int>(in.gcount());}
+    if(got<2){in.clear();in.seekg(0);in.read(reinterpret_cast<char*>(buf.data()),static_cast<std::streamsize>(std::min<std::uint64_t>(buf.size(),split)));got=static_cast<int>(in.gcount());}
     if(got<2) throw std::runtime_error("not enough training bytes");
     sum+=m.train_chunk(buf.data(),got);
     if(s%100==0 || s==1){
