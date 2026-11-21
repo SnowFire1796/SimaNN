@@ -21,6 +21,7 @@ class RNN {
 public:
     explicit RNN(Config cfg = {});
     float train_chunk(const std::uint8_t* bytes, int length);
+    float evaluate_chunk(const std::uint8_t* bytes, int length) const;
     std::vector<std::uint8_t> generate(const std::string& prompt, int count,
                                        float temperature = 0.85f, int top_k = 32);
     void save(const std::string& path) const;
