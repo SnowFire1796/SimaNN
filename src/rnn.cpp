@@ -31,7 +31,6 @@ std::vector<float> RNN::forward(std::uint8_t token, const std::vector<float>& pr
     h.resize(H);
     for (int j=0;j<H;++j) {
         float z = wxh[static_cast<std::size_t>(token)*H+j] + bh[j];
-        const float* row = whh.data()+static_cast<std::size_t>(j)*H;
         for (int k=0;k<H;++k) z += prev[k]*whh[static_cast<std::size_t>(k)*H+j];
         h[j] = std::tanh(z);
     }
@@ -47,6 +46,18 @@ std::vector<float> RNN::forward(std::uint8_t token, const std::vector<float>& pr
     for (float& x:p) x/=sum;
     return p;
 }
+float RNN::evaluate_chunk(const std::uint8_t* x, int length) const {
+    if (length < 2) return 0;
+    std::vector<float> prev(H,0), hidden, probs;
+    double loss=0;
+    for(int t=0;t<length-1;++t) {
+        forward(x[t],prev,hidden,probs);
+        loss -= std::log(std::max(probs[x[t+1]],1e-12f));
+        prev=hidden;
+    }
+    return static_cast<float>(loss/(length-1));
+}
+
 float RNN::train_chunk(const std::uint8_t* x, int length) {
     if (length < 2) return 0;
     struct Cache { std::vector<float> h, p; };
