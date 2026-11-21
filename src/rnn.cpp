@@ -82,11 +82,10 @@ float RNN::train_chunk(const std::uint8_t* x, int length) {
             for (int k=0;k<VOCAB;++k)
                 g[o_why+static_cast<std::size_t>(j)*VOCAB+k] += c.h[j]*dy[k];
         for (int k=0;k<VOCAB;++k) g[o_by+k]+=dy[k];
-        std::vector<float> dh(H,0), dz(H,0);
+        std::vector<float> dz(H,0);
         for (int j=0;j<H;++j) {
             float q=dhnext[j];
             for (int k=0;k<VOCAB;++k) q += why[static_cast<std::size_t>(j)*VOCAB+k]*dy[k];
-            dh[j]=q;
             dz[j]=q*(1.0f-c.h[j]*c.h[j]);
             g[o_wxh+static_cast<std::size_t>(x[t])*H+j]+=dz[j];
             g[o_bh+j]+=dz[j];
